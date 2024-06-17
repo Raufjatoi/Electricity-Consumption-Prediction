@@ -11,9 +11,9 @@ from sklearn.metrics import mean_squared_error
 
 # Function to load and preprocess the dataset
 @st.cache_data
-def load_data():
+def load_data(file):
     # Load the dataset
-    data = pd.read_csv('household_power_consumption.txt', sep=';', 
+    data = pd.read_csv(file, sep=';', 
                        parse_dates={'Datetime': ['Date', 'Time']},
                        infer_datetime_format=True, 
                        na_values=['?'],
@@ -37,119 +37,136 @@ def load_data():
     
     return data
 
-# Load the data
-data = load_data()
-
 # Streamlit app
 st.title('Household Electricity Consumption Forecast')
 
-# Display raw data
-st.subheader('Raw Data')
-if st.checkbox('Show raw data'):
-    st.write(data.head())
+# Instructions for users
+st.write("""
+### How to Use This App
+1. **Upload Dataset:** Use the file uploader to upload your dataset.
+2. **View Raw Data:** Check the box to display the first few rows of the dataset.
+3. **Exploratory Data Analysis:** View the time series plot and correlation matrix.
+4. **Feature Engineering:** View the feature-engineered data if desired.
+5. **Time Series Forecasting:** Train an ARIMA model and view model evaluation metrics.
+6. **Forecast Future Consumption:** Use the form to select ARIMA model parameters and forecast future consumption.
+""")
 
-# Exploratory Data Analysis
-st.subheader('Exploratory Data Analysis')
+# File uploader for dataset
+uploaded_file = st.file_uploader("Choose a file")
 
-# Plot the time series data
-st.write("### Global Active Power over Time")
-fig, ax = plt.subplots(figsize=(14, 7))
-ax.plot(data['Global_active_power'])
-ax.set_title('Global Active Power over Time')
-ax.set_xlabel('Time')
-ax.set_ylabel('Global Active Power (kilowatts)')
-st.pyplot(fig)
+if uploaded_file is not None:
+    # Load the data
+    data = load_data(uploaded_file)
+    
+    # Display raw data
+    st.subheader('Raw Data')
+    if st.checkbox('Show raw data'):
+        st.write(data.head())
 
-# Plot the correlations between different features
-st.write("### Correlation Matrix")
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.heatmap(data.corr(), annot=True, cmap='coolwarm', ax=ax)
-ax.set_title('Correlation Matrix')
-st.pyplot(fig)
+    # Exploratory Data Analysis
+    st.subheader('Exploratory Data Analysis')
 
-# Feature Engineering
-st.subheader('Feature Engineering')
+    # Plot the time series data
+    st.write("### Global Active Power over Time")
+    fig, ax = plt.subplots(figsize=(14, 7))
+    ax.plot(data['Global_active_power'])
+    ax.set_title('Global Active Power over Time')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Global Active Power (kilowatts)')
+    st.pyplot(fig)
 
-# Create time-based features
-data['Hour'] = data.index.hour
-data['Day'] = data.index.day
-data['Month'] = data.index.month
-data['Day_of_week'] = data.index.dayofweek
-data['Weekend'] = (data.index.dayofweek >= 5).astype(int)
+    # Plot the correlations between different features
+    st.write("### Correlation Matrix")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.heatmap(data.corr(), annot=True, cmap='coolwarm', ax=ax)
+    ax.set_title('Correlation Matrix')
+    st.pyplot(fig)
 
-# Optional: Display feature-engineered data
-if st.checkbox('Show feature-engineered data'):
-    st.write(data.head())
+    # Feature Engineering
+    st.subheader('Feature Engineering')
 
-# Model fitting and evaluation
-st.subheader('Time Series Forecasting')
+    # Create time-based features
+    data['Hour'] = data.index.hour
+    data['Day'] = data.index.day
+    data['Month'] = data.index.month
+    data['Day_of_week'] = data.index.dayofweek
+    data['Weekend'] = (data.index.dayofweek >= 5).astype(int)
 
-# Select ARIMA model parameters
-st.write("### Model Training and Evaluation")
-p = 5
-d = 1
-q = 0
+    # Optional: Display feature-engineered data
+    if st.checkbox('Show feature-engineered data'):
+        st.write(data.head())
 
-# Train-test split
-train_size = int(len(data) * 0.8)
-train, test = data['Global_active_power'][:train_size], data['Global_active_power'][train_size:]
+    # Model fitting and evaluation
+    st.subheader('Time Series Forecasting')
 
-# Model training
-model = ARIMA(train, order=(p, d, q))
-model_fit = model.fit()
+    # Select ARIMA model parameters
+    st.write("### Model Training and Evaluation")
+    p = 5
+    d = 1
+    q = 0
 
-# Model summary
-st.write("#### Model Summary")
-st.text(model_fit.summary())
+    # Train-test split
+    train_size = int(len(data) * 0.8)
+    train, test = data['Global_active_power'][:train_size], data['Global_active_power'][train_size:]
 
-# Predictions and evaluation
-predictions = model_fit.forecast(steps=len(test))
-rmse = np.sqrt(mean_squared_error(test, predictions))
-st.write(f'#### RMSE: {rmse}')
+    # Model training
+    model = ARIMA(train, order=(p, d, q))
+    model_fit = model.fit()
 
-# Plot the residuals
-st.write("#### Residuals")
-residuals = pd.DataFrame(model_fit.resid)
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.plot(residuals)
-ax.set_title('Residuals')
-st.pyplot(fig)
+    # Model summary
+    st.write("#### Model Summary")
+    st.text(model_fit.summary())
 
-# Plot actual vs predicted
-st.write("#### Actual vs Predicted")
-fig, ax = plt.subplots(figsize=(14, 7))
-ax.plot(test.index, test, label='Actual')
-ax.plot(test.index, predictions, label='Predicted', color='red')
-ax.set_title('Actual vs Predicted')
-ax.set_xlabel('Time')
-ax.set_ylabel('Global Active Power (kilowatts)')
-ax.legend()
-st.pyplot(fig)
+    # Predictions and evaluation
+    predictions = model_fit.forecast(steps=len(test))
+    rmse = np.sqrt(mean_squared_error(test, predictions))
+    st.write(f'#### RMSE: {rmse}')
 
-# Forecast future consumption
-st.subheader('Forecast Future Consumption')
-st.write("### Forecast Future Consumption")
+    # Plot the residuals
+    st.write("#### Residuals")
+    residuals = pd.DataFrame(model_fit.resid)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(residuals)
+    ax.set_title('Residuals')
+    st.pyplot(fig)
 
-with st.form("forecast_form"):
-    p = st.number_input('Select p:', min_value=0, max_value=10, value=5)
-    d = st.number_input('Select d:', min_value=0, max_value=2, value=1)
-    q = st.number_input('Select q:', min_value=0, max_value=10, value=0)
-    future_steps = st.slider('Forecast steps into the future:', 1, 365, 30)
-    submitted = st.form_submit_button("Forecast")
+    # Plot actual vs predicted
+    st.write("#### Actual vs Predicted")
+    fig, ax = plt.subplots(figsize=(14, 7))
+    ax.plot(test.index, test, label='Actual')
+    ax.plot(test.index, predictions, label='Predicted', color='red')
+    ax.set_title('Actual vs Predicted')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Global Active Power (kilowatts)')
+    ax.legend()
+    st.pyplot(fig)
 
-    if submitted:
-        # Retrain the model with the user-selected parameters
-        model = ARIMA(data['Global_active_power'], order=(p, d, q))
-        model_fit = model.fit()
-        forecast = model_fit.forecast(steps=future_steps)
-        forecast_dates = pd.date_range(start=data.index[-1], periods=future_steps + 1, closed='right')
+    # Forecast future consumption
+    st.subheader('Forecast Future Consumption')
+    st.write("### Forecast Future Consumption")
 
-        # Plot the forecast
-        fig, ax = plt.subplots(figsize=(14, 7))
-        ax.plot(data['Global_active_power'], label='Historical Data')
-        ax.plot(forecast_dates, forecast, label='Forecasted Data', color='red')
-        ax.set_title('Forecast of Global Active Power')
-        ax.set_xlabel('Time')
-        ax.set_ylabel('Global Active Power (kilowatts)')
-        ax.legend()
-        st.pyplot(fig)
+    with st.form("forecast_form"):
+        p = st.number_input('Select p:', min_value=0, max_value=10, value=5)
+        d = st.number_input('Select d:', min_value=0, max_value=2, value=1)
+        q = st.number_input('Select q:', min_value=0, max_value=10, value=0)
+        future_steps = st.slider('Forecast steps into the future:', 1, 365, 30)
+        submitted = st.form_submit_button("Forecast")
+
+        if submitted:
+            # Retrain the model with the user-selected parameters
+            model = ARIMA(data['Global_active_power'], order=(p, d, q))
+            model_fit = model.fit()
+            forecast = model_fit.forecast(steps=future_steps)
+            forecast_dates = pd.date_range(start=data.index[-1], periods=future_steps + 1, closed='right')
+
+            # Plot the forecast
+            fig, ax = plt.subplots(figsize=(14, 7))
+            ax.plot(data['Global_active_power'], label='Historical Data')
+            ax.plot(forecast_dates, forecast, label='Forecasted Data', color='red')
+            ax.set_title('Forecast of Global Active Power')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Global Active Power (kilowatts)')
+            ax.legend()
+            st.pyplot(fig)
+else:
+    st.write("Please upload a dataset file to proceed.")
